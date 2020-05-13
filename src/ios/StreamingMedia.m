@@ -4,6 +4,8 @@
 #import <AVKit/AVKit.h>
 #import "LandscapeVideo.h"
 #import "PortraitVideo.h"
+#import <Photos/Photos.h>
+
 
 @interface StreamingMedia()
 - (void)parseOptions:(NSDictionary *) options type:(NSString *) type;
@@ -35,7 +37,7 @@ NSString * const DEFAULT_IMAGE_SCALE = @"center";
 -(void)parseOptions:(NSDictionary *)options type:(NSString *) type {
     // Common options
     mOrientation = options[@"orientation"] ?: @"default";
-    
+
     if (![options isKindOfClass:[NSNull class]] && [options objectForKey:@"shouldAutoClose"]) {
         shouldAutoClose = [[options objectForKey:@"shouldAutoClose"] boolValue];
     } else {
@@ -46,16 +48,16 @@ NSString * const DEFAULT_IMAGE_SCALE = @"center";
     } else {
         backgroundColor = [UIColor blackColor];
     }
-    
+
     if (![options isKindOfClass:[NSNull class]] && [options objectForKey:@"initFullscreen"]) {
         initFullscreen = [[options objectForKey:@"initFullscreen"] boolValue];
     } else {
         initFullscreen = YES;
     }
-    
+
     if ([type isEqualToString:TYPE_AUDIO]) {
         videoType = TYPE_AUDIO;
-        
+
         // bgImage
         // bgImageScale
         if (![options isKindOfClass:[NSNull class]] && [options objectForKey:@"bgImage"]) {
@@ -82,10 +84,28 @@ NSString * const DEFAULT_IMAGE_SCALE = @"center";
 -(void)play:(CDVInvokedUrlCommand *) command type:(NSString *) type {
     NSLog(@"play called");
     callbackId = command.callbackId;
-    NSString *mediaUrl  = [command.arguments objectAtIndex:0];
+    NSString *assetId  = [command.arguments objectAtIndex:0];
     [self parseOptions:[command.arguments objectAtIndex:1] type:type];
-    
-    [self startPlayer:mediaUrl];
+
+    PHFetchResult<PHAsset*>* fetchResultAssets
+    = [PHAsset fetchAssetsWithLocalIdentifiers:@[assetId] options:nil];
+
+    PHAsset* asset = fetchResultAssets.firstObject;
+
+    PHVideoRequestOptions* reqOptions = [[PHVideoRequestOptions alloc] init];
+    reqOptions.networkAccessAllowed = YES;
+
+
+    __typeof__(self) __weak weakSelf = self;
+
+
+    [[PHImageManager defaultManager]
+            requestAVAssetForVideo:asset
+            options:reqOptions
+            resultHandler:^(AVAsset * avasset, AVAudioMix * audioMix, NSDictionary * info) {
+
+            [weakSelf startPlayer:avasset];
+    }];
 }
 
 -(void)stop:(CDVInvokedUrlCommand *) command type:(NSString *) type {
@@ -177,12 +197,12 @@ NSString * const DEFAULT_IMAGE_SCALE = @"center";
 -(void)setImage:(NSString*)imagePath withScaleType:(NSString*)imageScaleType {
     NSLog(@"setimage called");
     imageView = [[UIImageView alloc] initWithFrame:self.viewController.view.bounds];
-    
+
     if (imageScaleType == nil) {
         NSLog(@"imagescaletype was NIL");
         imageScaleType = DEFAULT_IMAGE_SCALE;
     }
-    
+
     if ([imageScaleType isEqualToString:@"stretch"]){
         // Stretches image to fill all available background space, disregarding aspect ratio
         imageView.contentMode = UIViewContentModeScaleToFill;
@@ -197,44 +217,48 @@ NSString * const DEFAULT_IMAGE_SCALE = @"center";
         imageView.contentMode = UIViewContentModeCenter;
         //moviePlayer.backgroundView.contentMode = UIViewContentModeCenter;
     }
-    
+
     [imageView setImage:[self getImage:imagePath]];
 }
 
--(void)startPlayer:(NSString*)uri {
+-(void)startPlayer:(AVAsset*)asset {
     NSLog(@"startplayer called");
-    NSURL *url             =  [NSURL URLWithString:uri];
-    movie                  =  [AVPlayer playerWithURL:url];
-    
-    // handle orientation
-    [self handleOrientation];
-    
-    // handle gestures
-    [self handleGestures];
-    
-    [moviePlayer setPlayer:movie];
-    [moviePlayer setShowsPlaybackControls:YES];
-    [moviePlayer setUpdatesNowPlayingInfoCenter:YES];
-    
-    if(@available(iOS 11.0, *)) { [moviePlayer setEntersFullScreenWhenPlaybackBegins:YES]; }
-    
-    // present modally so we get a close button
-    [self.viewController presentViewController:moviePlayer animated:YES completion:^(void){
-        [moviePlayer.player play];
-    }];
-    
-    // add audio image and background color
-    if ([videoType isEqualToString:TYPE_AUDIO]) {
-        if (imageView != nil) {
-            [moviePlayer.contentOverlayView setAutoresizesSubviews:YES];
-            [moviePlayer.contentOverlayView addSubview:imageView];
-        }
-        moviePlayer.contentOverlayView.backgroundColor = backgroundColor;
-        [self.viewController.view addSubview:moviePlayer.view];
-    }
-    
-    // setup listners
-    [self handleListeners];
+
+    AVPlayerItem *playerItem = [AVPlayerItem playerItemWithAsset:asset];
+    movie =  [AVPlayer playerWithPlayerItem:playerItem];
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+       // handle orientation
+       [self handleOrientation];
+
+       // handle gestures
+       [self handleGestures];
+
+       [moviePlayer setPlayer:movie];
+       [moviePlayer setShowsPlaybackControls:YES];
+       [moviePlayer setUpdatesNowPlayingInfoCenter:YES];
+
+       if(@available(iOS 11.0, *)) { [moviePlayer setEntersFullScreenWhenPlaybackBegins:YES]; }
+
+       // present modally so we get a close button
+       [self.viewController presentViewController:moviePlayer animated:YES completion:^(void){
+           [moviePlayer.player play];
+       }];
+
+       // add audio image and background color
+       if ([videoType isEqualToString:TYPE_AUDIO]) {
+           if (imageView != nil) {
+               [moviePlayer.contentOverlayView setAutoresizesSubviews:YES];
+               [moviePlayer.contentOverlayView addSubview:imageView];
+           }
+           moviePlayer.contentOverlayView.backgroundColor = backgroundColor;
+           [self.viewController.view addSubview:moviePlayer.view];
+       }
+
+       // setup listners
+       [self handleListeners];
+    });
+
 }
 
 - (void) handleListeners {

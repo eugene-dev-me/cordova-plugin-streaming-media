@@ -22,10 +22,16 @@ StreamingMedia.prototype.stopAudio = function (options) {
     cordova.exec(options.successCallback || null, options.errorCallback || null, "StreamingMedia", "stopAudio", [options]);
 };
 
-StreamingMedia.prototype.playVideo = function (url, options) {
+StreamingMedia.prototype.playVideoAsset = function (asset_id, options) {
 	options = options || {};
-	cordova.exec(options.successCallback || null, options.errorCallback || null, "StreamingMedia", "playVideo", [url, options]);
+	cordova.exec(options.successCallback || null, options.errorCallback || null, "StreamingMedia", "playVideoAsset", [asset_id, options]);
 };
+
+StreamingMedia.prototype.playVideoURL = function (url, options) {
+	options = options || {};
+	cordova.exec(options.successCallback || null, options.errorCallback || null, "StreamingMedia", "playVideoURL", [url, options]);
+};
+
 
 
 StreamingMedia.install = function () {

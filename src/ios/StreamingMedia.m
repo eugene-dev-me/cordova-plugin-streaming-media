@@ -81,7 +81,7 @@ NSString * const DEFAULT_IMAGE_SCALE = @"center";
     // No specific options for video yet
 }
 
--(void)play:(CDVInvokedUrlCommand *) command type:(NSString *) type {
+-(void)playasset:(CDVInvokedUrlCommand *) command type:(NSString *) type {
     NSLog(@"play called");
     callbackId = command.callbackId;
     NSString *assetId  = [command.arguments objectAtIndex:0];
@@ -104,8 +104,17 @@ NSString * const DEFAULT_IMAGE_SCALE = @"center";
             options:reqOptions
             resultHandler:^(AVAsset * avasset, AVAudioMix * audioMix, NSDictionary * info) {
 
-            [weakSelf startPlayer:avasset];
+            [weakSelf startPlayerAsset:avasset];
     }];
+}
+
+-(void)playurl:(CDVInvokedUrlCommand *) command type:(NSString *) type {
+    NSLog(@"play called");
+    callbackId = command.callbackId;
+    NSString *mediaUrl  = [command.arguments objectAtIndex:0];
+    [self parseOptions:[command.arguments objectAtIndex:1] type:type];
+
+    [self startPlayerURL:mediaUrl];
 }
 
 -(void)stop:(CDVInvokedUrlCommand *) command type:(NSString *) type {
@@ -116,10 +125,16 @@ NSString * const DEFAULT_IMAGE_SCALE = @"center";
     }
 }
 
--(void)playVideo:(CDVInvokedUrlCommand *) command {
+-(void)playVideoAsset:(CDVInvokedUrlCommand *) command {
     NSLog(@"playvideo called");
     [self ignoreMute];
-    [self play:command type:[NSString stringWithString:TYPE_VIDEO]];
+    [self playasset:command type:[NSString stringWithString:TYPE_VIDEO]];
+}
+
+-(void)playVideoURL:(CDVInvokedUrlCommand *) command {
+    NSLog(@"playvideo called");
+    [self ignoreMute];
+    [self playurl:command type:[NSString stringWithString:TYPE_VIDEO]];
 }
 
 -(void)playAudio:(CDVInvokedUrlCommand *) command {
@@ -221,7 +236,7 @@ NSString * const DEFAULT_IMAGE_SCALE = @"center";
     [imageView setImage:[self getImage:imagePath]];
 }
 
--(void)startPlayer:(AVAsset*)asset {
+-(void)startPlayerAsset:(AVAsset*)asset {
     NSLog(@"startplayer called");
 
     AVPlayerItem *playerItem = [AVPlayerItem playerItemWithAsset:asset];
@@ -258,7 +273,42 @@ NSString * const DEFAULT_IMAGE_SCALE = @"center";
        // setup listners
        [self handleListeners];
     });
+}
 
+-(void)startPlayerURL:(NSString*)uri {
+    NSLog(@"startplayer called");
+    NSURL *url             =  [NSURL URLWithString:uri];
+    movie                  =  [AVPlayer playerWithURL:url];
+
+    // handle orientation
+    [self handleOrientation];
+
+    // handle gestures
+    [self handleGestures];
+
+    [moviePlayer setPlayer:movie];
+    [moviePlayer setShowsPlaybackControls:YES];
+    [moviePlayer setUpdatesNowPlayingInfoCenter:YES];
+
+    if(@available(iOS 11.0, *)) { [moviePlayer setEntersFullScreenWhenPlaybackBegins:YES]; }
+
+    // present modally so we get a close button
+    [self.viewController presentViewController:moviePlayer animated:YES completion:^(void){
+        [moviePlayer.player play];
+    }];
+
+    // add audio image and background color
+    if ([videoType isEqualToString:TYPE_AUDIO]) {
+        if (imageView != nil) {
+            [moviePlayer.contentOverlayView setAutoresizesSubviews:YES];
+            [moviePlayer.contentOverlayView addSubview:imageView];
+        }
+        moviePlayer.contentOverlayView.backgroundColor = backgroundColor;
+        [self.viewController.view addSubview:moviePlayer.view];
+    }
+
+    // setup listners
+    [self handleListeners];
 }
 
 - (void) handleListeners {

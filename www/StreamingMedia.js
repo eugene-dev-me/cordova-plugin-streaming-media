@@ -48,6 +48,7 @@ StreamingMedia.prototype.fireEvent = function (event)
 			mem.fullscreen.last_air_play.active = false;
 			mem.fullscreen.videos.paused = true;
 			mem.fullscreen.setInteract(true);
+			mem.video.pauseFullscreenVideos();
 		}, mem.fullscreen.last_air_play.threshold);
 	}
 };

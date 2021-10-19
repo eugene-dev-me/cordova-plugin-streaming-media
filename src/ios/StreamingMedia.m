@@ -8,7 +8,7 @@
 
 #import <AVFoundation/AVFoundation.h>
 #import <MediaPlayer/MediaPlayer.h>
-#import "MPAudioDeviceController.h"
+//#import "MPAudioDeviceController.h"
 
 
 @interface StreamingMedia()
